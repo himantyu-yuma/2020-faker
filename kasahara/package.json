@@ -1,0 +1,9 @@
+{
+  "name": "2020-faker",
+  "version": "1.0.0",
+  "description": "winter hackathon vol5",
+  "main": "index.js",
+  "repository": "https://github.com/himantyu-yuma/2020-faker.git",
+  "author": "himantyu-yuma <lipton.happy.milktea@gmail.com>",
+  "license": "MIT"
+}
