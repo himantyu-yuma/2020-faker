@@ -2,6 +2,8 @@ import json
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import base64
 from io import BytesIO
+import os
+import datetime
 
 # 3か月分の画像を処理するやつ
 # def compile_images(json_file):
@@ -71,7 +73,9 @@ def encode_test():
         data = base64.b64encode(image_file.read())
     with open('base64.txt', mode='w', encoding='utf-8') as f:
         f.write(data.decode('utf-8'))
-        
+
 if __name__ == "__main__":
-    compile_images('sample.json')
+    with open('../kasahara/image-processing/sample.json', mode='r', encoding='utf-8') as f:
+        data = json.load(f)
+    compile_images(data)
     # encode_test()
