@@ -4,6 +4,7 @@ import base64
 from pathlib import Path
 from io import BytesIO
 import json
+import re
 
 from linebot import (
     LineBotApi, WebhookHandler
@@ -11,8 +12,7 @@ from linebot import (
 from linebot.exceptions import (
     InvalidSignatureError
 )
-from linebot.models import (ImageMessage, ImageSendMessage, MessageEvent, TextMessage, TextSendMessage
-)
+from linebot.models import (ImageMessage, ImageSendMessage, MessageEvent, TextMessage, TextSendMessage, MessageAction, QuickReplyButton, QuickReply)
 
 app = Flask(__name__)
 
@@ -23,9 +23,9 @@ YOUR_CHANNEL_SECRET = os.environ["YOUR_CHANNEL_SECRET"]
 line_bot_api = LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(YOUR_CHANNEL_SECRET)
 
-m = 1
-n = 0
-d = []
+
+mlist = []
+mdic = {}
 montext = ""
 captext = ""
 
@@ -52,42 +52,52 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    global montext
-    global captext
-    global m
-    global n
-    if m == n + 1:
-        month_str = str(m)
-        montext = month_str + "月"
-        captext = event.message.text
-        m = m + 1
+    month_list = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+    
+    message_text = event.message.text
+
+    if message_text == "まとめる":
+        items = [QuickReplyButton(action=MessageAction(label=f"{month}", text=f"{month}")) for month in month_list]
+        messages = TextSendMessage(text="何月の写真を送りますか？",quick_reply=QuickReply(items=items))
+        line_bot_api.reply_message(event.reply_token, messages=messages)
+
+    elif "月" in message_text:
+        mdic['month'] = message_text.replace('月','')
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage("次の月の画像を送信してください。"))
-    else:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="画像を送信してください。"))
+            TextSendMessage(text="アルバムにする画像を送信してください"))
+
+    elif len(mdic) != 0 and len(mlist) < 3:
+        mdic['caption'] = message_text
+        mlist.append(mdic)
+        print(mlist)
+        mdic.clear()
+        items = [QuickReplyButton(action=MessageAction(label=f"{month}", text=f"{month}")) for month in month_list]
+        messages = TextSendMessage(text="何月の写真を送りますか？",quick_reply=QuickReply(items=items))
+        line_bot_api.reply_message(event.reply_token, messages=messages)
+
+    elif len(mlist) > 3:
+        json_data = json.dumps(mlist)
+        print(json_data)
+
 
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image(event):
-    global m
-    global n
-    if m == 1:
+    message_id = event.message.id
+    if len(mdic) != 0:
+        encoded_image = encode(message_id)
+        mdic['img'] = encoded_image
+        print(mdic)
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text="テキストでキャプションを送信してください。"))
     else:
-        n = n + 1
         message_id = event.message.id
         encoded_image = encode(message_id)
-        d.append({"月": montext, "caption": captext, "img": encoded_image})
+        mlist.append({"month": montext, "caption": captext, "img": encoded_image})
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text="テキストで次の月の写真のキャプションを送信してください。"))
-
-        if n > 12:
-            print(d)
 
 
 def encode(message_id):
