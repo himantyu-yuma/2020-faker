@@ -67,19 +67,17 @@ def handle_message(event):
             event.reply_token,
             TextSendMessage(text="アルバムにする画像を送信してください"))
 
-    elif len(mdic) != 0 and len(mlist) < 3:
+    elif len(mdic) != 0:
         mdic['caption'] = message_text
         mlist.append(mdic)
-        print(mlist)
         mdic.clear()
-        items = [QuickReplyButton(action=MessageAction(label=f"{month}", text=f"{month}")) for month in month_list]
-        messages = TextSendMessage(text="何月の写真を送りますか？",quick_reply=QuickReply(items=items))
-        line_bot_api.reply_message(event.reply_token, messages=messages)
-
-    elif len(mlist) > 3:
-        json_data = json.dumps(mlist)
-        print(json_data)
-
+        if len(mlist) < 3:
+            items = [QuickReplyButton(action=MessageAction(label=f"{month}", text=f"{month}")) for month in month_list]
+            messages = TextSendMessage(text="何月の写真を送りますか？",quick_reply=QuickReply(items=items))
+            line_bot_api.reply_message(event.reply_token, messages=messages)
+        else:
+            json_data = json.dumps(mlist)
+            print(json_data)
 
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image(event):
@@ -87,7 +85,6 @@ def handle_image(event):
     if len(mdic) != 0:
         encoded_image = encode(message_id)
         mdic['img'] = encoded_image
-        print(mdic)
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text="テキストでキャプションを送信してください。"))
