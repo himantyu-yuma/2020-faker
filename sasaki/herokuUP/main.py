@@ -1,4 +1,4 @@
-from flask import Flask, request, abort
+from flask import *
 import os
 import base64
 from pathlib import Path
@@ -14,6 +14,10 @@ from linebot.exceptions import (
 )
 from linebot.models import (ImageMessage, ImageSendMessage, MessageEvent, TextMessage, TextSendMessage, MessageAction, QuickReplyButton, QuickReply)
 
+# 画像処理するやつ
+import image_process
+
+
 app = Flask(__name__)
 
 #環境変数取得
@@ -23,11 +27,14 @@ YOUR_CHANNEL_SECRET = os.environ["YOUR_CHANNEL_SECRET"]
 line_bot_api = LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(YOUR_CHANNEL_SECRET)
 
+# 画像保存ディレクトリを定義
+SAVE_DIR = 'images'
+# デプロイしてるURL
+DEPLOY_URL = 'https://faker-2020.herokuapp.com'
+
 
 mlist = []
 mdic = {}
-montext = ""
-captext = ""
 
 @app.route("/")
 def hello_world():
@@ -69,15 +76,29 @@ def handle_message(event):
 
     elif len(mdic) != 0:
         mdic['caption'] = message_text
-        mlist.append(mdic)
+        print(mdic)
+        mlist.append(mdic.copy())
         mdic.clear()
+        print(mlist)
         if len(mlist) < 3:
             items = [QuickReplyButton(action=MessageAction(label=f"{month}", text=f"{month}")) for month in month_list]
             messages = TextSendMessage(text="何月の写真を送りますか？",quick_reply=QuickReply(items=items))
             line_bot_api.reply_message(event.reply_token, messages=messages)
+            print(mlist)
         else:
-            json_data = json.dumps(mlist)
-            print(json_data)
+            save_path = image_process.compile_images(mlist, SAVE_DIR)
+            # json_data = json.dumps(mlist)
+            # print(json_data)git 
+            
+            # 画像の送信
+            image_message = ImageSendMessage(
+                original_content_url=f'https://faker-2020.herokuapp.com/{save_path}',
+                preview_image_url=f'https://faker-2020.herokuapp.com/{save_path}',
+            )
+
+            line_bot_api.reply_message(event.reply_token, image_message)
+            mlist.clear()
+
 
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image(event):
@@ -88,19 +109,17 @@ def handle_image(event):
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text="テキストでキャプションを送信してください。"))
-    else:
-        message_id = event.message.id
-        encoded_image = encode(message_id)
-        mlist.append({"month": montext, "caption": captext, "img": encoded_image})
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="テキストで次の月の写真のキャプションを送信してください。"))
 
 
 def encode(message_id):
     message_content = line_bot_api.get_message_content(message_id)
     image = message_content.content
     return base64.b64encode(image)
+
+
+@app.route('/images/<path:path>')
+def send_js(path):
+    return send_from_directory(SAVE_DIR, path)
 
 
 if __name__ == "__main__":
